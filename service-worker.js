@@ -1,5 +1,5 @@
 // H My Health V11 — offline-first local storage; no cloud or account services.
-const CACHE_NAME = 'h-my-health-v11';
+const CACHE_NAME = 'h-my-health-v11-no-glucose-thresholds';
 const APP_ROOT = new URL('./', self.registration.scope);
 const CORE_PATHS = [
  './','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png',
