@@ -175,7 +175,10 @@ h2{font-size:21px;color:#173d5c}
 
 #healthAlertModal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(12,28,45,.62);padding:18px;align-items:center;justify-content:center}
 #healthAlertModal.open{display:flex}.health-alert-box{width:min(100%,520px);max-height:85vh;overflow:auto;background:#fff;border-radius:22px;padding:24px;box-shadow:0 18px 55px #0005;border-top:7px solid #d94b45;text-align:center}.health-alert-box h2{color:#a52d2d;font-size:25px}.health-alert-box p{font-size:18px;line-height:1.6;color:#34465a;text-align:left}.health-alert-box button{width:100%;margin-top:10px}
+#appUpdateModal{display:none;position:fixed;inset:0;z-index:10001;background:rgba(12,28,45,.62);padding:18px;align-items:center;justify-content:center}
+#appUpdateModal.open{display:flex}.app-update-box{width:min(100%,480px);background:#fff;border-radius:22px;padding:24px;box-shadow:0 18px 55px #0005;text-align:center}.app-update-box h2{color:#155b91}.app-update-box p{line-height:1.6;color:#43566a}.app-update-box button{width:100%;margin-top:9px}
 </style></head><body>
+<div id="appUpdateModal" class="no-print" role="dialog" aria-modal="true" aria-labelledby="appUpdateTitle"><div class="app-update-box"><div style="font-size:38px">🔄</div><h2 id="appUpdateTitle">มีเวอร์ชันใหม่ของ H My Health</h2><p>อัปเดตแอปได้ทันทีโดยไม่ต้องลบหรือติดตั้งใหม่ ข้อมูลสุขภาพที่บันทึกไว้ในเครื่องจะไม่ถูกลบ</p><button id="applyAppUpdate" class="blue" type="button">อัปเดตตอนนี้</button><button id="laterAppUpdate" class="light" type="button">ไว้ภายหลัง</button></div></div>
 <header><h1>❤️ H My Health</h1><p id="headerDate" class="header-date"></p></header>
 <nav><button class="blue" onclick="show('home')">หน้าหลัก</button><button class="light" onclick="show('profile')">ผู้ใช้งาน</button><button class="light" onclick="show('history')">ประวัติ</button><button class="light" onclick="show('settings')">ตั้งค่า</button><button class="light" onclick="show('appointments')">นัดตรวจ</button><button class="light" onclick="show('guide')">วิธีใช้งาน</button><button class="light" onclick="show('developer')">ผู้พัฒนา</button></nav>
 <div id="installPanel" class="card no-print" style="margin:12px 14px;padding:13px;border:2px solid #b8d8f5;display:none">
@@ -622,8 +625,23 @@ if(!isStandaloneApp()){
   installDialogText.textContent='เพิ่ม H My Health ไว้บนหน้าจอ iPhone เพื่อเปิดใช้งานได้สะดวก';
  }
 }
+// In-place PWA updates: check on launch, when returning to the app, and every 6 hours.
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
- window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js', {scope: './'}).catch(err=>console.log('Service worker:',err)));
+ let pendingWorker=null; const updateModal=$('appUpdateModal');
+ const applyUpdate=()=>{if(pendingWorker){pendingWorker.postMessage('SKIP_WAITING');$('applyAppUpdate').textContent='กำลังอัปเดต…';$('applyAppUpdate').disabled=true;}};
+ $('applyAppUpdate')?.addEventListener('click',applyUpdate);
+ $('laterAppUpdate')?.addEventListener('click',()=>updateModal.classList.remove('open'));
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(sessionStorage.getItem('hmy-update-reloading')!=='1'){sessionStorage.setItem('hmy-update-reloading','1');location.reload();}});
+ window.addEventListener('load',async()=>{
+  try{const reg=await navigator.serviceWorker.register('./service-worker.js',{scope:'./'});
+   const inspect=()=>{if(reg.waiting&&navigator.serviceWorker.controller){pendingWorker=reg.waiting;updateModal.classList.add('open');}};
+   inspect(); reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller){pendingWorker=worker;updateModal.classList.add('open');}});});
+   const check=()=>{if(navigator.onLine)reg.update().catch(()=>{});};
+   window.addEventListener('focus',check);document.addEventListener('visibilitychange',()=>{if(!document.hidden)check();});setInterval(check,6*60*60*1000);
+   // Clear the one-session reload guard after the updated page has loaded.
+   sessionStorage.removeItem('hmy-update-reloading');
+  }catch(err){console.log('Service worker:',err);}
+ });
 }
 
 </script>
